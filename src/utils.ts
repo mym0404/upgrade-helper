@@ -275,6 +275,7 @@ export const buildAiUpgradePrompt = ({
 
             if (isDeletedBinaryFile(file)) {
               return [
+                '',
                 `### \`${localPath}\``,
                 '- Remove this file from the target project if it still exists.',
               ]
@@ -288,6 +289,7 @@ export const buildAiUpgradePrompt = ({
             })
 
             return [
+              '',
               `### \`${localPath}\``,
               '```bash',
               `curl -L "${downloadURL}" -o "${localPath}"`,
@@ -359,6 +361,6 @@ export const buildAiUpgradePrompt = ({
     ...binaryInstructions,
     ...structuredFileChanges,
   ]
-    .filter(Boolean)
+    .filter((line) => line !== undefined)
     .join('\n')
 }

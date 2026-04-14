@@ -182,7 +182,9 @@ describe('buildAiUpgradePrompt', () => {
     expect(prompt).toContain(
       'This diff only represents the React Native bootstrap/template project between versions. First understand the current project structure and apply only the changes that are relevant to this codebase.'
     )
+    expect(prompt).toContain('\n\n## Task overview')
     expect(prompt).toContain('## File changes')
+    expect(prompt).toContain('\n\n### `App.js`')
     expect(prompt).toContain('### `App.js`')
     expect(prompt).toContain('- Change type: Modified')
     expect(prompt).toContain('```diff')
@@ -208,6 +210,9 @@ describe('buildAiUpgradePrompt', () => {
     })
 
     expect(prompt).toContain('## Binary file handling')
+    expect(prompt).toContain(
+      '\n\n### `android/gradle/wrapper/gradle-wrapper.jar`'
+    )
     expect(prompt).toContain('### `android/gradle/wrapper/gradle-wrapper.jar`')
     expect(prompt).toContain('```bash')
     expect(prompt).toContain(
@@ -231,6 +236,9 @@ describe('buildAiUpgradePrompt', () => {
       ),
     })
 
+    expect(prompt).toContain(
+      '\n\n### `android/app/src/main/res/mipmap-hdpi/ic_launcher.png`'
+    )
     expect(prompt).toContain(
       '### `android/app/src/main/res/mipmap-hdpi/ic_launcher.png`'
     )
