@@ -2,6 +2,7 @@ import React from 'react'
 import styled from '@emotion/styled'
 import { Button as AntdButton, ButtonProps } from 'antd'
 import { CopyOutlined } from '@ant-design/icons'
+import { deviceSizes } from '../../utils/device-sizes'
 
 export const testIDs = {
   upgradeButton: 'upgradeButton',
@@ -16,6 +17,10 @@ const Container = styled.div`
   height: auto;
   overflow: hidden;
   margin-top: 28px;
+
+  @media ${deviceSizes.mobile} {
+    flex-direction: column;
+  }
 `
 
 const Button = styled(AntdButton)`
@@ -23,22 +28,15 @@ const Button = styled(AntdButton)`
 `
 
 const AiPromptButton = styled(Button)`
-  transition: background-color 0.2s ease, border-color 0.2s ease,
-    box-shadow 0.2s ease;
-
   && {
-    background: linear-gradient(135deg, #ff6fb5 0%, #59c4ff 100%);
+    background: linear-gradient(135deg, #ff6fb5 0%, #59c4ff 100%) !important;
     border: 0;
     box-shadow: 0 2px 0 rgba(89, 196, 255, 0.24);
     color: #fff;
   }
 
-  &&:hover,
-  &&:focus {
-    background: linear-gradient(135deg, #ff86c3 0%, #7dd3ff 100%) !important;
-    border: 0;
-    color: #fff;
-    box-shadow: 0 6px 16px rgba(89, 196, 255, 0.28);
+  &&:hover {
+    opacity: 0.8;
   }
 `
 

@@ -5,7 +5,7 @@ import UpgradeButton, {
 } from '../../../components/common/UpgradeButton'
 
 describe('UpgradeButton', () => {
-  it('hides the AI prompt button until the prompt is ready', () => {
+  it('does not render the AI prompt button until the prompt is ready', () => {
     const { queryByTestId } = render(<UpgradeButton onShowDiff={jest.fn()} />)
 
     expect(queryByTestId(testIDs.aiPromptButton)).toBeNull()
