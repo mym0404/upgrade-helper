@@ -25,6 +25,7 @@ import { updateURL } from '../../utils/update-url'
 import { deviceSizes } from '../../utils/device-sizes'
 import { lightTheme, darkTheme, type Theme } from '../../theme'
 import { CheckboxValueType } from 'antd/es/checkbox/Group'
+import type { File } from 'gitdiff-parser'
 
 const Page = styled.div<{ theme?: Theme }>`
   background-color: ${({ theme }) => theme.background};
@@ -136,7 +137,7 @@ const Home = () => {
   const [fromVersion, setFromVersion] = useState<string>('')
   const [toVersion, setToVersion] = useState<string>('')
   const [shouldShowDiff, setShouldShowDiff] = useState<boolean>(false)
-  const [rawDiffText, setRawDiffText] = useState<string>('')
+  const [resolvedDiff, setResolvedDiff] = useState<File[]>([])
   const [settings, setSettings] = useState<Record<string, boolean>>({
     [`${SHOW_LATEST_RCS}`]: false,
   })
@@ -151,16 +152,21 @@ const Home = () => {
   const normalizedAppPackage =
     deferredAppPackage !== DEFAULT_APP_PACKAGE ? deferredAppPackage : undefined
   const aiPrompt = useMemo(() => {
-    if (!shouldShowDiff || !fromVersion || !toVersion || !rawDiffText) {
+    if (
+      !shouldShowDiff ||
+      !fromVersion ||
+      !toVersion ||
+      resolvedDiff.length === 0
+    ) {
       return ''
     }
 
     return buildAiUpgradePrompt({
+      files: resolvedDiff,
       packageName,
       language,
       fromVersion,
       toVersion,
-      rawDiffText,
       appName: deferredAppName,
       appPackage: normalizedAppPackage,
     })
@@ -168,7 +174,7 @@ const Home = () => {
     shouldShowDiff,
     fromVersion,
     toVersion,
-    rawDiffText,
+    resolvedDiff,
     packageName,
     language,
     deferredAppName,
@@ -205,7 +211,7 @@ const Home = () => {
 
     setFromVersion(nextFromVersion)
     setToVersion(nextToVersion)
-    setRawDiffText('')
+    setResolvedDiff([])
     setShouldShowDiff(true)
   }
 
@@ -232,7 +238,7 @@ const Home = () => {
     setLanguage(localLanguage)
     setFromVersion('')
     setToVersion('')
-    setRawDiffText('')
+    setResolvedDiff([])
     setShouldShowDiff(false)
   }
 
@@ -349,6 +355,8 @@ const Home = () => {
               appName={appName}
               isAiPromptReady={!!aiPrompt}
               onCopyAiPrompt={() => navigator.clipboard.writeText(aiPrompt)}
+              resolvedFromVersion={fromVersion}
+              resolvedToVersion={toVersion}
             />
           </Container>
           {/*
@@ -369,7 +377,7 @@ const Home = () => {
             }
             packageName={packageName}
             language={language}
-            onDiffResolved={setRawDiffText}
+            onDiffResolved={setResolvedDiff}
           />
         </Page>
       </ThemeProvider>

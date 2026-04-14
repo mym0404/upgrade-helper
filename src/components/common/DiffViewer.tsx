@@ -72,7 +72,7 @@ interface DiffViewerProps {
   onToggleChangeSelection: (args: ChangeEventArgs) => void
   appName: string
   appPackage: string
-  onDiffResolved?: (rawDiffText: string) => void
+  onDiffResolved?: (diff: File[]) => void
 }
 const DiffViewer = ({
   packageName,
@@ -86,7 +86,7 @@ const DiffViewer = ({
   appPackage,
   onDiffResolved,
 }: DiffViewerProps) => {
-  const { isLoading, isDone, diff, rawDiffText } = useFetchDiff({
+  const { isLoading, isDone, diff } = useFetchDiff({
     shouldShowDiff,
     packageName,
     language,
@@ -181,10 +181,10 @@ const DiffViewer = ({
   }, [isDone])
 
   useEffect(() => {
-    if (isDone && rawDiffText) {
-      onDiffResolved?.(rawDiffText)
+    if (isDone) {
+      onDiffResolved?.(diff)
     }
-  }, [isDone, rawDiffText, onDiffResolved])
+  }, [isDone, diff, onDiffResolved])
 
   if (!shouldShowDiff) {
     return null

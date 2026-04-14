@@ -1,4 +1,5 @@
 import { PACKAGE_NAMES } from '../constants'
+import { parseDiff } from 'react-diff-view'
 import '../releases/__mocks__/index'
 import {
   getVersionsContentInDiff,
@@ -135,20 +136,31 @@ describe('replaceAppDetails ', () => {
 })
 
 describe('buildAiUpgradePrompt', () => {
-  it('includes overview, warnings, and the full customized diff', () => {
-    const prompt = buildAiUpgradePrompt({
+  const createFiles = (rawDiffText: string) => parseDiff(rawDiffText)
+  const createPrompt = (
+    overrides: Partial<Parameters<typeof buildAiUpgradePrompt>[0]>
+  ) =>
+    buildAiUpgradePrompt({
+      files: [],
       packageName: PACKAGE_NAMES.RN,
       language: 'cpp',
       fromVersion: '0.63.2',
       toVersion: '0.64.2',
-      rawDiffText: [
-        'diff --git a/RnDiffApp/App.js b/RnDiffApp/App.js',
-        '--- a/RnDiffApp/App.js',
-        '+++ b/RnDiffApp/App.js',
-        '@@ -1 +1 @@',
-        '-package com.rndiffapp;',
-        '+package com.rndiffapp;',
-      ].join('\n'),
+      ...overrides,
+    })
+
+  it('includes overview, warnings, and structured file changes', () => {
+    const prompt = createPrompt({
+      files: createFiles(
+        [
+          'diff --git a/RnDiffApp/App.js b/RnDiffApp/App.js',
+          '--- a/RnDiffApp/App.js',
+          '+++ b/RnDiffApp/App.js',
+          '@@ -1 +1 @@',
+          '-package com.rndiffapp;',
+          '+package com.rndiffapp;',
+        ].join('\n')
+      ),
       appName: 'MyApp',
       appPackage: 'com.example.myapp',
     })
@@ -170,32 +182,29 @@ describe('buildAiUpgradePrompt', () => {
     expect(prompt).toContain(
       'This diff only represents the React Native bootstrap/template project between versions. First understand the current project structure and apply only the changes that are relevant to this codebase.'
     )
-    expect(prompt).toContain('## Full git diff (binary patches omitted)')
+    expect(prompt).toContain('## File changes')
+    expect(prompt).toContain('### `App.js`')
+    expect(prompt).toContain('- Change type: Modified')
     expect(prompt).toContain('```diff')
     expect(prompt).toContain('```')
-    expect(prompt).toContain('diff --git a/MyApp/App.js b/MyApp/App.js')
     expect(prompt).toContain('-package com.example.myapp;')
   })
 
   it('omits binary patch contents and adds download guidance', () => {
-    const prompt = buildAiUpgradePrompt({
-      packageName: PACKAGE_NAMES.RN,
-      language: 'cpp',
-      fromVersion: '0.63.2',
-      toVersion: '0.64.2',
-      rawDiffText: [
-        'diff --git a/RnDiffApp/android/gradle/wrapper/gradle-wrapper.jar b/RnDiffApp/android/gradle/wrapper/gradle-wrapper.jar',
-        'index abc..def 100644',
-        'GIT binary patch',
-        'literal 123',
-        'abcdef',
-        'diff --git a/RnDiffApp/App.js b/RnDiffApp/App.js',
-        '--- a/RnDiffApp/App.js',
-        '+++ b/RnDiffApp/App.js',
-        '@@ -1 +1 @@',
-        '-console.log("old")',
-        '+console.log("new")',
-      ].join('\n'),
+    const prompt = createPrompt({
+      files: createFiles(
+        [
+          'diff --git a/RnDiffApp/android/gradle/wrapper/gradle-wrapper.jar b/RnDiffApp/android/gradle/wrapper/gradle-wrapper.jar',
+          'index abc..def 100644',
+          'Binary files a/RnDiffApp/android/gradle/wrapper/gradle-wrapper.jar and b/RnDiffApp/android/gradle/wrapper/gradle-wrapper.jar differ',
+          'diff --git a/RnDiffApp/App.js b/RnDiffApp/App.js',
+          '--- a/RnDiffApp/App.js',
+          '+++ b/RnDiffApp/App.js',
+          '@@ -1 +1 @@',
+          '-console.log("old")',
+          '+console.log("new")',
+        ].join('\n')
+      ),
     })
 
     expect(prompt).toContain('## Binary file handling')
@@ -204,8 +213,30 @@ describe('buildAiUpgradePrompt', () => {
     expect(prompt).toContain(
       'curl -L "https://raw.githubusercontent.com/react-native-community/rn-diff-purge/release/0.64.2/RnDiffApp/android/gradle/wrapper/gradle-wrapper.jar" -o "android/gradle/wrapper/gradle-wrapper.jar"'
     )
-    expect(prompt).not.toContain('GIT binary patch')
-    expect(prompt).not.toContain('literal 123')
-    expect(prompt).toContain('diff --git a/RnDiffApp/App.js b/RnDiffApp/App.js')
+    expect(prompt).not.toContain(
+      'Binary files a/RnDiffApp/android/gradle/wrapper/gradle-wrapper.jar'
+    )
+    expect(prompt).toContain('### `App.js`')
+  })
+
+  it('tells the agent to remove deleted binary files instead of downloading them', () => {
+    const prompt = createPrompt({
+      files: createFiles(
+        [
+          'diff --git a/RnDiffApp/android/app/src/main/res/mipmap-hdpi/ic_launcher.png b/RnDiffApp/android/app/src/main/res/mipmap-hdpi/ic_launcher.png',
+          'deleted file mode 100644',
+          'index abcdef..000000',
+          'Binary files a/RnDiffApp/android/app/src/main/res/mipmap-hdpi/ic_launcher.png and /dev/null differ',
+        ].join('\n')
+      ),
+    })
+
+    expect(prompt).toContain(
+      '### `android/app/src/main/res/mipmap-hdpi/ic_launcher.png`'
+    )
+    expect(prompt).toContain(
+      '- Remove this file from the target project if it still exists.'
+    )
+    expect(prompt).not.toContain('raw.githubusercontent.com')
   })
 })

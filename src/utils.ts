@@ -1,4 +1,5 @@
 import semver from 'semver/preload'
+import type { Change, File, Hunk } from 'gitdiff-parser'
 import {
   RN_DIFF_REPOSITORIES,
   DEFAULT_APP_NAME,
@@ -179,107 +180,162 @@ export const getFilePathsToShow = ({
   }
 }
 
-const getDiffBlocks = (rawDiffText: string) =>
-  rawDiffText.split(/(?=^diff --git )/m).filter(Boolean)
+const isBinaryFile = (file: File) =>
+  !!file.isBinary ||
+  (file.hunks.length === 0 && !['rename', 'copy'].includes(file.type))
 
-const isBinaryDiffBlock = (diffBlock: string) =>
-  diffBlock.includes('\nGIT binary patch\n') ||
-  /^Binary files .* differ$/m.test(diffBlock)
+const isDeletedBinaryFile = (file: File) => {
+  return (
+    isBinaryFile(file) &&
+    (file.type === 'delete' || file.newRevision === '000000')
+  )
+}
 
-const getDiffPathsFromBlock = (diffBlock: string) => {
-  const match = diffBlock.match(/^diff --git a\/(.+?) b\/(.+)$/m)
+const NO_LINE_LEVEL_PATCH_MESSAGE =
+  '- No line-level patch was included for this file.'
 
-  if (!match) {
-    return null
-  }
+const serializeChange = ({
+  change,
+  appName,
+  appPackage,
+}: {
+  change: Change
+  appName?: string
+  appPackage?: string
+}) => {
+  const prefix =
+    change.type === 'insert' ? '+' : change.type === 'delete' ? '-' : ' '
 
-  return {
-    oldPath: match[1],
-    newPath: match[2],
-  }
+  return `${prefix}${replaceAppDetails(change.content, appName, appPackage)}`
+}
+
+const serializeHunk = ({
+  hunk,
+  appName,
+  appPackage,
+}: {
+  hunk: Hunk
+  appName?: string
+  appPackage?: string
+}) =>
+  [hunk.content]
+    .concat(
+      hunk.changes.map((change) =>
+        serializeChange({ change, appName, appPackage })
+      )
+    )
+    .join('\n')
+
+const FILE_CHANGE_LABELS: Record<File['type'], string> = {
+  add: 'Added',
+  copy: 'Copied',
+  delete: 'Deleted',
+  modify: 'Modified',
+  rename: 'Renamed',
 }
 
 export const buildAiUpgradePrompt = ({
+  files,
   packageName,
   language,
   fromVersion,
   toVersion,
-  rawDiffText,
   appName,
   appPackage,
 }: {
+  files: File[]
   packageName: string
   language: string
   fromVersion: string
   toVersion: string
-  rawDiffText: string
   appName?: string
   appPackage?: string
 }) => {
   const effectiveAppName = appName || DEFAULT_APP_NAME
   const effectiveAppPackage =
     appPackage || `com.${effectiveAppName.toLowerCase()}`
-  const binaryFiles: { localPath: string; downloadCommand: string }[] = []
-  const textDiffBlocks = getDiffBlocks(rawDiffText).filter((diffBlock) => {
-    if (!isBinaryDiffBlock(diffBlock)) {
-      return true
-    }
-
-    const diffPaths = getDiffPathsFromBlock(diffBlock)
-
-    if (!diffPaths) {
-      return false
-    }
-
-    const binaryPath =
-      diffPaths.newPath === '/dev/null' ? diffPaths.oldPath : diffPaths.newPath
-
-    if (binaryPath === '/dev/null') {
-      return false
-    }
-
-    const localPaths = getFilePathsToShow({
-      oldPath: diffPaths.oldPath,
-      newPath: diffPaths.newPath,
-      appName,
-      appPackage,
-    })
-    const localPath =
-      diffPaths.newPath === '/dev/null'
-        ? localPaths.oldPath
-        : localPaths.newPath
-    const downloadURL = getBinaryFileURL({
-      packageName,
-      language,
-      version: toVersion,
-      path: binaryPath,
-    })
-
-    binaryFiles.push({
-      localPath,
-      downloadCommand: `curl -L "${downloadURL}" -o "${localPath}"`,
-    })
-
-    return false
-  })
-  const customizedDiff = replaceAppDetails(
-    textDiffBlocks.join(''),
-    appName,
-    appPackage
-  )
+  const binaryFiles = files.filter(isBinaryFile)
+  const textFiles = files.filter((file) => !isBinaryFile(file))
   const binaryInstructions =
     binaryFiles.length > 0
       ? [
           '',
           '## Binary file handling',
-          '- Binary patch payloads are intentionally omitted from the diff below because they are too large and should not be applied from inline patch text.',
-          '- Download the actual binary file to the target project path and replace it directly if that file is relevant to your app.',
-          ...binaryFiles.flatMap(({ localPath, downloadCommand }) => [
-            `### \`${localPath}\``,
-            '```bash',
-            downloadCommand,
-            '```',
-          ]),
+          '- Binary files are listed separately because inline patch payloads are not useful here.',
+          ...binaryFiles.flatMap((file) => {
+            const localPaths = getFilePathsToShow({
+              oldPath: file.oldPath,
+              newPath: file.newPath,
+              appName,
+              appPackage,
+            })
+            const localPath = isDeletedBinaryFile(file)
+              ? localPaths.oldPath
+              : localPaths.newPath
+
+            if (isDeletedBinaryFile(file)) {
+              return [
+                `### \`${localPath}\``,
+                '- Remove this file from the target project if it still exists.',
+              ]
+            }
+
+            const downloadURL = getBinaryFileURL({
+              packageName,
+              language,
+              version: toVersion,
+              path: file.newPath,
+            })
+
+            return [
+              `### \`${localPath}\``,
+              '```bash',
+              `curl -L "${downloadURL}" -o "${localPath}"`,
+              '```',
+            ]
+          }),
+        ]
+      : []
+  const structuredFileChanges =
+    textFiles.length > 0
+      ? [
+          '',
+          '## File changes',
+          ...textFiles.flatMap((file) => {
+            const localPaths = getFilePathsToShow({
+              oldPath: file.oldPath,
+              newPath: file.newPath,
+              appName,
+              appPackage,
+            })
+            const localPath =
+              file.type === 'delete' ? localPaths.oldPath : localPaths.newPath
+            const fileChanges = [
+              `### \`${localPath}\``,
+              `- Change type: ${FILE_CHANGE_LABELS[file.type]}`,
+            ]
+
+            if (
+              ['rename', 'copy'].includes(file.type) &&
+              localPaths.oldPath !== localPaths.newPath
+            ) {
+              fileChanges.push(`- Previous path: \`${localPaths.oldPath}\``)
+            }
+
+            if (file.hunks.length > 0) {
+              fileChanges.push(
+                '```diff',
+                file.hunks
+                  .map((hunk) => serializeHunk({ hunk, appName, appPackage }))
+                  .join('\n'),
+                '```'
+              )
+            } else {
+              fileChanges.push(NO_LINE_LEVEL_PATCH_MESSAGE)
+            }
+
+            return ['', ...fileChanges]
+          }),
         ]
       : []
 
@@ -295,18 +351,13 @@ export const buildAiUpgradePrompt = ({
     `- App package input or fallback: ${effectiveAppPackage}`,
     '',
     '## Important notes',
-    '- Use the full git diff below as the source of truth for template changes.',
+    '- Use the structured file changes below as the source of truth for parsed template changes.',
     '- This diff only represents the React Native bootstrap/template project between versions. First understand the current project structure and apply only the changes that are relevant to this codebase.',
     '- Preserve project-specific code and merge carefully instead of blindly overwriting files.',
     '- Review binary file changes separately if any are present.',
     '- The app name and app package values may be inaccurate because the user may have left them unchanged, blank, or approximate. Verify them against the real project before applying changes.',
     ...binaryInstructions,
-    '',
-    '## Full git diff (binary patches omitted)',
-    '',
-    '```diff',
-    customizedDiff.trimEnd(),
-    '```',
+    ...structuredFileChanges,
   ]
     .filter(Boolean)
     .join('\n')
