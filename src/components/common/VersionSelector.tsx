@@ -225,6 +225,8 @@ const VersionSelector = ({
   showReleaseCandidates,
   appPackage,
   appName,
+  isAiPromptReady,
+  onCopyAiPrompt,
 }: {
   packageName: string
   language: string
@@ -233,6 +235,8 @@ const VersionSelector = ({
   showReleaseCandidates: boolean
   appPackage: string
   appName?: string
+  isAiPromptReady: boolean
+  onCopyAiPrompt: () => Promise<void>
 }) => {
   const { isLoading, isDone, releaseVersions } = useFetchReleaseVersions({
     packageName,
@@ -403,7 +407,12 @@ const VersionSelector = ({
         />
       </Selectors>
 
-      <UpgradeButton ref={upgradeButtonEl} onShowDiff={onShowDiff} />
+      <UpgradeButton
+        ref={upgradeButtonEl}
+        onShowDiff={onShowDiff}
+        showAiPromptButton={isAiPromptReady}
+        onAiPromptClick={onCopyAiPrompt}
+      />
     </Fragment>
   )
 }

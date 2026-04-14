@@ -4,6 +4,7 @@ import {
   getVersionsContentInDiff,
   replaceAppDetails,
   getChangelogURL,
+  buildAiUpgradePrompt,
 } from '../utils'
 
 describe('getVersionsContentInDiff', () => {
@@ -131,4 +132,80 @@ describe('replaceAppDetails ', () => {
       expect(replaceAppDetails(path, appName, appPackage)).toEqual(newPath)
     }
   )
+})
+
+describe('buildAiUpgradePrompt', () => {
+  it('includes overview, warnings, and the full customized diff', () => {
+    const prompt = buildAiUpgradePrompt({
+      packageName: PACKAGE_NAMES.RN,
+      language: 'cpp',
+      fromVersion: '0.63.2',
+      toVersion: '0.64.2',
+      rawDiffText: [
+        'diff --git a/RnDiffApp/App.js b/RnDiffApp/App.js',
+        '--- a/RnDiffApp/App.js',
+        '+++ b/RnDiffApp/App.js',
+        '@@ -1 +1 @@',
+        '-package com.rndiffapp;',
+        '+package com.rndiffapp;',
+      ].join('\n'),
+      appName: 'MyApp',
+      appPackage: 'com.example.myapp',
+    })
+
+    expect(prompt).toContain(
+      'You are helping upgrade a React Native app using the provided template diff.'
+    )
+    expect(prompt).toContain('# React Native upgrade guidance request')
+    expect(prompt).toContain('## Task overview')
+    expect(prompt).toContain('- From version: 0.63.2')
+    expect(prompt).toContain('- To version: 0.64.2')
+    expect(prompt).toContain('- App name input or fallback: MyApp')
+    expect(prompt).toContain(
+      '- App package input or fallback: com.example.myapp'
+    )
+    expect(prompt).toContain(
+      'The app name and app package values may be inaccurate because the user may have left them unchanged, blank, or approximate. Verify them against the real project before applying changes.'
+    )
+    expect(prompt).toContain(
+      'This diff only represents the React Native bootstrap/template project between versions. First understand the current project structure and apply only the changes that are relevant to this codebase.'
+    )
+    expect(prompt).toContain('## Full git diff (binary patches omitted)')
+    expect(prompt).toContain('```diff')
+    expect(prompt).toContain('```')
+    expect(prompt).toContain('diff --git a/MyApp/App.js b/MyApp/App.js')
+    expect(prompt).toContain('-package com.example.myapp;')
+  })
+
+  it('omits binary patch contents and adds download guidance', () => {
+    const prompt = buildAiUpgradePrompt({
+      packageName: PACKAGE_NAMES.RN,
+      language: 'cpp',
+      fromVersion: '0.63.2',
+      toVersion: '0.64.2',
+      rawDiffText: [
+        'diff --git a/RnDiffApp/android/gradle/wrapper/gradle-wrapper.jar b/RnDiffApp/android/gradle/wrapper/gradle-wrapper.jar',
+        'index abc..def 100644',
+        'GIT binary patch',
+        'literal 123',
+        'abcdef',
+        'diff --git a/RnDiffApp/App.js b/RnDiffApp/App.js',
+        '--- a/RnDiffApp/App.js',
+        '+++ b/RnDiffApp/App.js',
+        '@@ -1 +1 @@',
+        '-console.log("old")',
+        '+console.log("new")',
+      ].join('\n'),
+    })
+
+    expect(prompt).toContain('## Binary file handling')
+    expect(prompt).toContain('### `android/gradle/wrapper/gradle-wrapper.jar`')
+    expect(prompt).toContain('```bash')
+    expect(prompt).toContain(
+      'curl -L "https://raw.githubusercontent.com/react-native-community/rn-diff-purge/release/0.64.2/RnDiffApp/android/gradle/wrapper/gradle-wrapper.jar" -o "android/gradle/wrapper/gradle-wrapper.jar"'
+    )
+    expect(prompt).not.toContain('GIT binary patch')
+    expect(prompt).not.toContain('literal 123')
+    expect(prompt).toContain('diff --git a/RnDiffApp/App.js b/RnDiffApp/App.js')
+  })
 })
