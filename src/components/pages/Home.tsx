@@ -354,7 +354,7 @@ const Home = () => {
               appPackage={appPackage}
               appName={appName}
               isAiPromptReady={!!aiPrompt}
-              onCopyAiPrompt={() => navigator.clipboard.writeText(aiPrompt)}
+              aiPrompt={aiPrompt}
               resolvedFromVersion={fromVersion}
               resolvedToVersion={toVersion}
             />

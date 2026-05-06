@@ -2,6 +2,7 @@ import React from 'react'
 import styled from '@emotion/styled'
 import { Button as AntdButton, ButtonProps } from 'antd'
 import { CopyOutlined } from '@ant-design/icons'
+import { CopyToClipboard } from 'react-copy-to-clipboard'
 import { deviceSizes } from '../../utils/device-sizes'
 
 export const testIDs = {
@@ -43,42 +44,38 @@ const AiPromptButton = styled(Button)`
 interface UpgradeButtonProps extends React.PropsWithRef<ButtonProps> {
   onShowDiff: () => void
   showAiPromptButton?: boolean
-  onAiPromptClick?: () => Promise<void>
+  aiPrompt?: string
 }
 
 const UpgradeButton = React.forwardRef<
   HTMLElement,
   UpgradeButtonProps & React.RefAttributes<HTMLElement>
->(
-  (
-    { onShowDiff, showAiPromptButton = false, onAiPromptClick, ...props },
-    ref
-  ) => (
-    <Container>
-      <Button
-        {...props}
-        ref={ref}
-        type="primary"
-        size="large"
-        data-testid={testIDs.upgradeButton}
-        onClick={onShowDiff}
-      >
-        Show me how to upgrade!
-      </Button>
+>(({ onShowDiff, showAiPromptButton = false, aiPrompt, ...props }, ref) => (
+  <Container>
+    <Button
+      {...props}
+      ref={ref}
+      type="primary"
+      size="large"
+      data-testid={testIDs.upgradeButton}
+      onClick={onShowDiff}
+    >
+      Show me how to upgrade!
+    </Button>
 
-      {showAiPromptButton && (
+    {showAiPromptButton && aiPrompt && (
+      <CopyToClipboard text={aiPrompt}>
         <AiPromptButton
           type="primary"
           size="large"
           data-testid={testIDs.aiPromptButton}
-          onClick={onAiPromptClick}
         >
           Copy for AI
           <CopyOutlined />
         </AiPromptButton>
-      )}
-    </Container>
-  )
-)
+      </CopyToClipboard>
+    )}
+  </Container>
+))
 
 export default UpgradeButton

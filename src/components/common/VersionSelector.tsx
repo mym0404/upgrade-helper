@@ -226,7 +226,7 @@ const VersionSelector = ({
   appPackage,
   appName,
   isAiPromptReady,
-  onCopyAiPrompt,
+  aiPrompt,
   resolvedFromVersion,
   resolvedToVersion,
 }: {
@@ -238,7 +238,7 @@ const VersionSelector = ({
   appPackage: string
   appName?: string
   isAiPromptReady: boolean
-  onCopyAiPrompt: () => Promise<void>
+  aiPrompt: string
   resolvedFromVersion: string
   resolvedToVersion: string
 }) => {
@@ -419,7 +419,7 @@ const VersionSelector = ({
         ref={upgradeButtonEl}
         onShowDiff={onShowDiff}
         showAiPromptButton={showAiPromptButton}
-        onAiPromptClick={onCopyAiPrompt}
+        aiPrompt={aiPrompt}
       />
     </Fragment>
   )
