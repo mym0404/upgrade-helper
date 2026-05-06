@@ -73,7 +73,7 @@ describe('Home', () => {
   })
 
   it('5. should select a current version', async () => {
-    await selectVersion('0.63.2')
+    await selectVersion('0.65.0')
 
     await waitToRender()
 
@@ -95,7 +95,7 @@ describe('Home', () => {
   })
 
   it('7. should select an upgrading version', async () => {
-    await selectVersion('0.64.2')
+    await selectVersion('0.66.0')
     await waitToRender()
 
     const image = await page.screenshot()

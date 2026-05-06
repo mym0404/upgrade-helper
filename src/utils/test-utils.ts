@@ -8,14 +8,14 @@ let page: puppeteer.Page
 const URLs = {
   RELEASES:
     'https://raw.githubusercontent.com/react-native-community/rn-diff-purge/master/RELEASES',
-  DIFF: 'https://raw.githubusercontent.com/react-native-community/rn-diff-purge/diffs/diffs/0.62.2..0.63.3.diff',
+  DIFF: 'https://raw.githubusercontent.com/react-native-community/rn-diff-purge/diffs/diffs/0.65.0..0.66.0.diff',
   REPOSITORY_INFO:
     'https://api.github.com/repos/react-native-community/upgrade-helper',
 }
 
 const MOCK_RESPONSES = {
   [URLs.RELEASES]: () =>
-    '0.64.2\n0.64.1\n0.64.0\n0.64.0-rc.3\n0.64.0-rc.2\n0.64.0-rc.1\n0.64.0-rc.0\n0.63.4\n0.63.3\n0.63.2\n0.63.1\n0.63.0\n0.62.2\n0.62.1',
+    '0.66.0\n0.66.0-rc.4\n0.66.0-rc.3\n0.66.0-rc.2\n0.66.0-rc.1\n0.66.0-rc.0\n0.65.2\n0.65.1\n0.65.0',
   [URLs.DIFF]: () =>
     fs.readFileSync('./src/mocks/0.63.2..0.64.2.diff', 'utf-8'),
   [URLs.REPOSITORY_INFO]: () =>
